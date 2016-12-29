@@ -10,7 +10,9 @@ import os
 import re
 import json
 import urllib2
+import sqlite3
 from urllib import quote_plus
+from resources.lib import YouTube,Vimeo, commands
 
 plugin = Plugin()
 
@@ -19,12 +21,16 @@ BASE_URL = 'http://www.reddit.com'
 #ADDON_VERSION = addon.getAddonInfo('version')
 ADDON_ID = "plugin.video.bacontv"
 ADDON_VERSION = "0.1.0"
-SUBREDDITS_FILE=xbmc.translatePath("special://profile/addon_data/plugin.video.bacontv/subreddits")
+SUBREDDITS_DB=xbmc.translatePath("special://profile/addon_data/plugin.video.bacontv/config")
 USERDATA_FOLDER=xbmc.translatePath("special://profile/addon_data/plugin.video.bacontv")
 
 
 if not os.path.isdir(USERDATA_FOLDER):
     os.mkdir(USERDATA_FOLDER)
+
+all_hosters = [YouTube(xbmcaddon, xbmc), Vimeo(xbmcaddon, xbmc)]
+
+all_enabled_hosters = filter(lambda hoster: hoster.enabled(), all_hosters)
 
 all_sort_options = [ "cat_new", "cat_hot_hour", "cat_hot_day", "cat_hot_week",
         "cat_hot_month", "cat_top_day", "cat_top_week", "cat_top_month",
@@ -53,6 +59,11 @@ sort_option_data = {
 items_per_page = 0
 items_per_page = ["25", "50", "75", "100"][items_per_page]
 
+
+def gen_sites_string():
+    print all_enabled_hosters
+    return " OR ".join(map(lambda hoster: hoster.site_string, all_enabled_hosters))
+
 def getBoolSetting(opt):
         #xbmcaddon.getSetting(opt) == "true"
         return True
@@ -67,12 +78,10 @@ def _get_sort_label(sort_entry):
 
 enabled_sort_options = filter(lambda opt: getBoolSetting(opt), list(sort_option_data))
 
-
-print _get_sort_label("cat_hot_hour")
 def _apicall(url):
     socket.setdefaulttimeout(30)
     opener = urllib2.build_opener()
-    userAgent = "KODI | " + ADDON_ID + " | " + ADDON_VERSION
+    userAgent = "kodi.tv:"+ADDON_ID+":v"+ADDON_VERSION+" (by /u/rasjani)"
     opener.addheaders = [('User-Agent', userAgent)]
     try:
         response = ""
@@ -82,6 +91,17 @@ def _apicall(url):
     except:
         pass
     return none
+
+def openDatabase():
+    #TODO: Error handling
+    create = not os.path.exists(SUBREDDITS_DB)
+    connection = sqlite3.connect(SUBREDDITS_DB)
+    cursor = connection.cursor()
+    if create:
+        cursor.executescript(commands['INITDB'])
+        connection.commit()
+
+    return {}
 
 def subreddits():
     return ["all","Videos","artisanvideos","suomirap"]
@@ -127,27 +147,36 @@ def listvideos(subreddit, sorting, sites):
         print url
         return []
 
-@plugin.route("/listsorting/<subreddit>/")
-def listsorting(subreddit):
+@plugin.route("/listsorting/<subreddit>/", name="default_listsorting", options={"sites": None})
+@plugin.route("/listsorting/<subreddit>/<sites>/")
+def listsorting(subreddit, sites):
     items = []
-    for sort_entry in enabled_sort_options:
-        items.append({
-            'label': _get_sort_label(sort_entry),
-            #'path': plugin.url_for('default_listvideos', subreddit = subreddit, sorting = sort_entry  ),
-            'path': plugin.url_for('listvideos', subreddit = subreddit, sorting = sort_entry, sites = 'site:youtube.com OR site:youtu.be'),
-            'is_playable': False,
-            'is_folder': True
-        })
-        
+    for sort_entry in all_sort_options:
+        if sort_entry in enabled_sort_options:
+            plugin_path = None
+            if sites == None:
+                print "XXXXXXXXXXXXXXXXXXXXX"
+                sites = gen_sites_string()
+                print "SITESSSSSSSSSSSSSSSSSSS: ", sites
+
+            items.append({
+                'label': _get_sort_label(sort_entry),
+                #'path': plugin.url_for('default_listvideos', subreddit = subreddit, sorting = sort_entry  ),
+                'path': plugin.url_for('listvideos', subreddit = subreddit, sorting = sort_entry, sites = sites),
+                'is_playable': False,
+                'is_folder': True
+            })
+
     return items
 
 @plugin.route("/")
 def index():
+    cd = openDatabase()
     items = []
     for sub in subreddits():
         items.append({
             'label': "/r/" + sub,
-            'path': plugin.url_for('listsorting', subreddit=sub),
+            'path': plugin.url_for('default_listsorting', subreddit=sub),
             'is_playable': False,
             'is_folder': True
         })
