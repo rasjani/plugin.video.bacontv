@@ -5,6 +5,7 @@ from BeautifulSoup import BeautifulSoup as BS
 from urllib2 import HTTPError
 from time import sleep
 from urlparse import urlparse
+from unicodedata import normalize
 import socket
 import os
 import re
@@ -96,15 +97,20 @@ def openDatabase():
     #TODO: Error handling
     create = not os.path.exists(SUBREDDITS_DB)
     connection = sqlite3.connect(SUBREDDITS_DB)
+    print SUBREDDITS_DB
     cursor = connection.cursor()
     if create:
         cursor.executescript(commands['INITDB'])
         connection.commit()
 
-    return {}
+    return {'cur': cursor, 'con': connection }
 
 def subreddits():
-    return ["all","Videos","artisanvideos","suomirap"]
+    cd = openDatabase()
+    res = cd['cur'].execute(commands['SUBREDDITS'])
+    #TODO: Error handling
+    #TODO: check how unicode works in xbmc?
+    return map(lambda sub: str(sub[0]), res.fetchall())
 
 def generate_search_url(subreddit, sorting, sites = None):
         # urlMain+"/r/"+subreddit+"/search.json?q="+nsfw+hosterQuery+"&sort=hot&restrict_sr=on&limit="+itemsPerPage+"&t=hour
@@ -171,7 +177,6 @@ def listsorting(subreddit, sites):
 
 @plugin.route("/")
 def index():
-    cd = openDatabase()
     items = []
     for sub in subreddits():
         items.append({

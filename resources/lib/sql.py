@@ -18,12 +18,16 @@ BEGIN TRANSACTION create_tables;
     'subreddit'   TEXT NOT NULL
   );
 INSERT INTO 'dbformat' VALUES( 1 );
+
+INSERT INTO 'subscriptions' (id, subreddit) VALUES( 1, 'all');
+INSERT INTO 'subscriptions' (id, subreddit) VALUES( 2, 'videos');
+INSERT INTO 'subscriptions' (id, subreddit) VALUES( 3, 'suomirap');
 COMMIT TRANSACTION create_tables;"""
 
 
 commands['SUBREDDITS']="""
 SELECT
-    'subreddit'
+    subreddit
 FROM
     'subscriptions'
 """
