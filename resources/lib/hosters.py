@@ -4,7 +4,7 @@ __author__ = 'rasjani'
 import re
 
 class Hoster:
-    def __init__(self, xbmcaddon, xbmc, header, addon_id, name, setting_name,site_string, matchers):
+    def __init__(self, xbmcaddon, xbmc, header, addon_id, name, setting_name,site_string, matchers, play_template):
         self.xbmcaddon = xbmcaddon
         self.xbmc = xbmc
         self.header = header
@@ -15,15 +15,16 @@ class Hoster:
         self.matchers = []
         for restring in matchers:
                 self.matchers.append(re.compile(restring, re.DOTALL))
+        self.play_template = play_template
+
+    def get_play_url(self, id):
+        return self.play_template.format(self.addon_id, id)
 
 
-    def get_play_url(self):
+    def get_download_url(self,id):
         return None
 
-    def get_download_url(self):
-        return None
-
-    def _addon_installed(self):
+    def _addon_installed(self,id):
         return self.xbmc.getCondVisibility( ('System.HasAddon(%s)' % self.addon_id) )
 
     def enabled(self):
@@ -37,9 +38,19 @@ class Hoster:
         for compiled_re in self.matchers:
             match = compiled_re.findall(url)
             if match:
+                return True
+        return None
+
+    def get_play_data(self, url):
+        for compiled_re in self.matchers:
+            match = compiled_re.findall(url)
+            if match:
+                videoid =  self.process_video_id(match[0])
                 return {
                     'hoster': self.name,
-                    'video_id': self.process_video_id(match[0])
+                    'video_id': videoid,
+                    'play_url': self.get_play_url(videoid),
+                    'dl_url': self.get_download_url(videoid)
                 }
         return None
 
@@ -52,7 +63,10 @@ class YouTube(Hoster):
                 "youtube",
                 "show_youtube",
                 "site:youtube.com OR site:youtu.be",
-                ['youtube.com/.*v=([^#\&\?]*).*', 'youtube.com/watch\\?v=(.+?)"','youtu.be/(.+?)"'])
+                ['youtube.com/.*v=([^#\&\?]*).*', 'youtube.com/watch\\?v=([^#\&\?]*).*','youtu.be/([^#\&\?]*).*'],
+                "plugin://{0}/play/?video_id={1}"
+                )
+
 
 class Vimeo(Hoster):
     def __init__(self, xbmcaddon, xbmc):
@@ -62,7 +76,8 @@ class Vimeo(Hoster):
                 "vimeo",
                 "show_vimeo",
                 "site:vimeo.com",
-                ['vimeo.com/(.+?)'])
+                ['vimeo.com/(.+?)'],
+                "plugin://{0}/play/?video_id={1}")
 
     def process_video_id(self, video_id):
         return video_id.replace('#','?').split('?')

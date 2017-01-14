@@ -3,7 +3,7 @@
 from xbmcswift2 import Plugin
 from xbmcswift2 import xbmcaddon
 from xbmcswift2 import xbmc
-from BeautifulSoup import BeautifulSoup as BS
+# from BeautifulSoup import BeautifulSoup as BS
 from urllib2 import HTTPError
 from time import sleep
 from urlparse import urlparse
@@ -65,8 +65,15 @@ items_per_page = ["25", "50", "75", "100"][items_per_page]
 
 
 
+def generate_link(url, title, date, rating, thumb, description, provider):
+    pd = provider.get_play_data(url)
+    if pd != None:
+        return  { 'label' :title, 'thumbnail' : thumb, 'path' : pd['play_url'], 'is_playable' : True, 'info': { 'plot':description } }
+    else:
+        return None 
+
 def get_provider(url):
-    return  filter(lambda provider: provider.can_play(url) != None, all_enabled_hosters)[0]
+    return next((provider for provider in all_enabled_hosters if provider.can_play(url)!=None), None)
 
 def gen_sites_string():
     return " OR ".join(map(lambda hoster: hoster.site_string, all_enabled_hosters))
@@ -76,8 +83,7 @@ def getBoolSetting(opt):
     return True
 
 def _(id):
-    #return xbmcaddon.getLocalizedString(id).encode('utf-8')
-    return str(id).encode('utf-8')
+    return plugin.get_string(id)
 
 def _get_sort_label(sort_entry):
     labels = sort_option_data[sort_entry]['label']
@@ -158,6 +164,7 @@ def generate_search_url(subreddit, sorting, sites = None):
 def listvideos(subreddit, sorting, sites):
     url = generate_search_url(subreddit, sorting, sites)
     content = _apicall(url)
+    itemlist = []
     if content != None:
         for entry in content['data']['children']:
             title = cleanTitle(entry['data']['title'].encode('utf-8'))
@@ -178,22 +185,25 @@ def listvideos(subreddit, sorting, sites):
             rating = 100
             if ups+downs>0:
                 rating = int(ups*100/(ups+downs))
+            comments = entry['data']['num_comments']
             #if filter and (ups+downs) > filterThreshold and rating < filterRating:
             #    continue
-            comments = entry['data']['num_comments']
             try:
                 thumb = entry['data']['media']['oembed']['thumbnail_url'].encode('utf-8')
             except:
                 thumb = entry['data']['thumbnail'].encode('utf-8')
             try:
-                url = entry['data']['media']['oembed']['url']+'"'
+                url = entry['data']['media']['oembed']['url']
             except:
-                url = entry['data']['url']+'"'
+                url = urllib2.unquote(entry['data']['url']).decode('utf-8')
             provider = get_provider(url)
             # TODO: translations for this
             description = dateTime+"  |  "+str(ups+downs)+" votes: "+str(rating)+"% Up  |  "+str(comments)+" comments | Source  " + provider.header + " \n"+description
+            item = generate_link(url, title, date, rating, thumb, description, provider)
+            if item != None:
+                itemlist.append(item)
 
-        return []
+        return itemlist
 
 @plugin.route("/listsorting/<subreddit>/", name="default_listsorting", options={"sites": None})
 @plugin.route("/listsorting/<subreddit>/<sites>/")
@@ -209,8 +219,7 @@ def listsorting(subreddit, sites):
                 'label': _get_sort_label(sort_entry),
                 #'path': plugin.url_for('default_listvideos', subreddit = subreddit, sorting = sort_entry  ),
                 'path': plugin.url_for('listvideos', subreddit = subreddit, sorting = sort_entry, sites = sites),
-                'is_playable': False,
-                'is_folder': True
+                'is_playable': False
             })
 
     return items
@@ -222,8 +231,7 @@ def index():
         items.append({
             'label': "/r/" + sub,
             'path': plugin.url_for('default_listsorting', subreddit=sub),
-            'is_playable': False,
-            'is_folder': True
+            'is_playable': False
         })
     return items
 
