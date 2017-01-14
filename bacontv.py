@@ -4,6 +4,7 @@ from xbmcswift2 import Plugin
 from xbmcswift2 import xbmcaddon
 from xbmcswift2 import xbmc
 # from BeautifulSoup import BeautifulSoup as BS
+import unicodedata
 from urllib2 import HTTPError
 from time import sleep
 from urlparse import urlparse
@@ -18,7 +19,6 @@ from urllib import quote_plus
 from resources.lib import YouTube,Vimeo, commands
 
 plugin = Plugin()
-
 BASE_URL = 'http://www.reddit.com'
 #BASE_URL = 'http://localhost'
 #ADDON_ID = xbmcaddon.getAddonInfo('id')
@@ -42,7 +42,7 @@ all_sort_options = [ "cat_new", "cat_hot_hour", "cat_hot_day", "cat_hot_week",
     "cat_com_week", "cat_com_month", "cat_com_year", "cat_com_all" ]
 
 sort_option_data = {
-    "cat_new":              { "sort": "new", "time": None, "label": [30003] },
+    "cat_new":              { "sort": "new", "time": "all", "label": [30003] },
     "cat_hot_hour":         { "sort": "hot", "time": "hour", "label": [30002,30006] },
     "cat_hot_day":          { "sort": "hot", "time": "day", "label": [30002,30007] },
     "cat_hot_week":         { "sort": "hot", "time": "week", "label": [30002,30008] },
@@ -63,12 +63,21 @@ sort_option_data = {
 items_per_page = 0
 items_per_page = ["25", "50", "75", "100"][items_per_page]
 
-
+def normalize(str):
+    return  unicodedata.normalize('NFKD', str).encode('ascii','ignore')
 
 def generate_link(url, title, date, rating, thumb, description, provider):
     pd = provider.get_play_data(url)
     if pd != None:
-        return  { 'label' :title, 'thumbnail' : thumb, 'path' : pd['play_url'], 'is_playable' : True, 'info': { 'plot':description } }
+        return  {
+            'label' : normalize(title),
+            'thumbnail' : thumb,
+            'path' : pd['play_url'],
+            'is_playable' : True,
+            'info': {
+                'plot': normalize(description)
+            }
+        }
     else:
         return None 
 
@@ -130,6 +139,7 @@ def subreddits():
 
 def generate_search_url(subreddit, sorting, sites = None):
     # urlMain+"/r/"+subreddit+"/search.json?q="+nsfw+hosterQuery+"&sort=hot&restrict_sr=on&limit="+itemsPerPage+"&t=hour
+# https://www.reddit.com/r/suomirap/search.json?q=nsfw:1+site%3Ayoutube.com+OR+site%3Ayoutu.be+OR+site%3Avimeo.com&sort=new&restrict_sr=on&limit=25
     data = {
         "base": BASE_URL,
         "subreddit": subreddit,
@@ -145,11 +155,11 @@ def generate_search_url(subreddit, sorting, sites = None):
     time_interval = sort_option_data[sorting]['time']
     if time_interval != None:
         options['t'] = time_interval
+
     data['options']="&".join(['{}={}'.format(k,v) for k,v in options.iteritems()])
 
-
     querystring = [
-        "nsfw:1",
+        # quote_plus("nsfw:yes"),
     ]
     if sites:
         querystring.append(quote_plus(sites))
@@ -167,9 +177,9 @@ def listvideos(subreddit, sorting, sites):
     itemlist = []
     if content != None:
         for entry in content['data']['children']:
-            title = cleanTitle(entry['data']['title'].encode('utf-8'))
+            title = cleanTitle(entry['data']['title'])
             try:
-                description = cleanTitle(entry['data']['media']['oembed']['description'].encode('utf-8'))
+                description = cleanTitle(entry['data']['media']['oembed']['description'])
             except:
                 description = ""
             try:
@@ -189,16 +199,17 @@ def listvideos(subreddit, sorting, sites):
             #if filter and (ups+downs) > filterThreshold and rating < filterRating:
             #    continue
             try:
-                thumb = entry['data']['media']['oembed']['thumbnail_url'].encode('utf-8')
+                thumb = entry['data']['media']['oembed']['thumbnail_url']
             except:
-                thumb = entry['data']['thumbnail'].encode('utf-8')
+                thumb = entry['data']['thumbnail']
             try:
                 url = entry['data']['media']['oembed']['url']
             except:
-                url = urllib2.unquote(entry['data']['url']).decode('utf-8')
+                url = urllib2.unquote(entry['data']['url'])
             provider = get_provider(url)
             # TODO: translations for this
-            description = dateTime+"  |  "+str(ups+downs)+" votes: "+str(rating)+"% Up  |  "+str(comments)+" comments | Source  " + provider.header + " \n"+description
+            prefix = unicode(dateTime+"  |  "+str(ups+downs)+" votes: "+str(rating)+"% Up  |  "+str(comments)+" comments | Source  " + provider.header + " \n")
+            description = prefix + description
             item = generate_link(url, title, date, rating, thumb, description, provider)
             if item != None:
                 itemlist.append(item)
