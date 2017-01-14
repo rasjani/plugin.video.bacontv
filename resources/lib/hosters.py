@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# vi: set shiftwidth=4 tabstop=4 expandtab:
 __author__ = 'rasjani'
 import re
 
@@ -33,9 +34,9 @@ class Hoster:
         return video_id
 
     def can_play(self, url):
-        for compiled_re in matchers:
+        for compiled_re in self.matchers:
             match = compiled_re.findall(url)
-            if match != None:
+            if match:
                 return {
                     'hoster': self.name,
                     'video_id': self.process_video_id(match[0])
@@ -51,7 +52,7 @@ class YouTube(Hoster):
                 "youtube",
                 "show_youtube",
                 "site:youtube.com OR site:youtu.be",
-                ['youtube.com/watch\\?v=(.+?)"','youtu.be/(.+?)"'])
+                ['youtube.com/.*v=([^#\&\?]*).*', 'youtube.com/watch\\?v=(.+?)"','youtu.be/(.+?)"'])
 
 class Vimeo(Hoster):
     def __init__(self, xbmcaddon, xbmc):
