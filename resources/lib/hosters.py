@@ -76,8 +76,5 @@ class Vimeo(Hoster):
                 "vimeo",
                 "show_vimeo",
                 "site:vimeo.com",
-                ['vimeo.com/(.+?)'],
+                ['vimeo.com/\D*(\d+)'],
                 "plugin://{0}/play/?video_id={1}")
-
-    def process_video_id(self, video_id):
-        return video_id.replace('#','?').split('?')
