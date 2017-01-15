@@ -79,7 +79,7 @@ def generate_link(url, title, date, rating, thumb, description, provider):
             }
         }
     else:
-        return None 
+        return None
 
 def get_provider(url):
     return next((provider for provider in all_enabled_hosters if provider.can_play(url)!=None), None)
@@ -88,8 +88,8 @@ def gen_sites_string():
     return " OR ".join(map(lambda hoster: hoster.site_string, all_enabled_hosters))
 
 def getBoolSetting(opt):
-    #xbmcaddon.getSetting(opt) == "true"
-    return True
+    return plugin.get_setting(opt) == "true"
+    #return True
 
 def _(id):
     return plugin.get_string(id)
@@ -242,6 +242,12 @@ def index():
         items.append({
             'label': "/r/" + sub,
             'path': plugin.url_for('default_listsorting', subreddit=sub),
+            'is_playable': False
+        })
+    for site in all_enabled_hosters:
+        items.append({
+            'label': site.header,
+            'path': plugin.url_for('listsorting',subreddit='all', sites=site.site_string),
             'is_playable': False
         })
     return items
