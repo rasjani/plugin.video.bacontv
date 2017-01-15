@@ -3,5 +3,6 @@
 __author__ = 'rasjani'
 from .hosters import YouTube
 from .hosters import Vimeo
+from .hosters import LiveLeak
 
 from .sql import commands
