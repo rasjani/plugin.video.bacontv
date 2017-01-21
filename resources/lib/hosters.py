@@ -7,6 +7,7 @@ from urllib2 import HTTPError
 import socket
 import urllib2
 import urllib
+import json
 
 
 def _dlpage(url):
@@ -120,4 +121,29 @@ class LiveLeak(Hoster):
                     return url
             # TODO: <iframe src="http://www.youtube.com/embed/O8DgzgNudHM?rel=0" allowfullscreen="" width="100%" height="480" frameborder="0"></iframe>
             # live-leak pages can actually just embed youtube .. grap tab and return plugin://plugin.video.youtube/play/?video_id=XXX here
+        return None
+
+
+class Streamable(Hoster):
+    def __init__(self, xbmcaddon, xbmc):
+        Hoster.__init__(self, xbmcaddon, xbmc,
+            "[ Streamable.com ]",
+            "plugin.video.bacontv",
+            "streamable",
+            "show_streamable",
+            "site:streamable.com",
+            ["streamable.com\/(.*)"],
+            "plugin://{0}/playvideo/{2}/{1}"
+        )
+
+    def resolve_play_url(self, id):
+        url = "http://streamable.com/{0}".format(id)
+        content = _dlpage(url)
+        if content != None:
+            match = re.compile("\s+var\s+videoObject\s+=\s+({.*?});", re.DOTALL).findall(content)
+            if match:
+                # TODO: Error handling
+                data = json.loads(match[0])
+                return  "https://{0}".format(data['files']['mp4']['embed_url'])
+
         return None
