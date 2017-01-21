@@ -1,22 +1,27 @@
 # -*- coding: utf-8 -*-
 # vi: set shiftwidth=4 tabstop=4 expandtab:
-from xbmcswift2 import Plugin
-from xbmcswift2 import xbmcaddon
-from xbmcswift2 import xbmc
+__author__ = 'rasjani'
+
+from kodiswift import Plugin
+from kodiswift import xbmcaddon
+from kodiswift import xbmc
 # from BeautifulSoup import BeautifulSoup as BS
-import unicodedata
-from urllib2 import HTTPError
+from urllib2 import HTTPError, unquote
 from time import sleep
 from urlparse import urlparse
 from contextlib import closing
-import socket
 import os
 import re
-import json
-import urllib2
 import sqlite3
 from urllib import quote_plus
-from resources.lib import YouTube,Vimeo, LiveLeak, commands
+
+from resources.lib import YouTube, LiveLeak, Vimeo, Streamable
+from resources.lib import commands
+from resources.lib import api_call, normalize, clean_title, dl_page
+from resources.lib import generate_play_link
+
+
+#from resources.lib import YouTube,Vimeo, LiveLeak, commands
 
 plugin = Plugin()
 BASE_URL = 'http://www.reddit.com'
@@ -28,11 +33,13 @@ ADDON_VERSION = "0.1.0"
 SUBREDDITS_DB=xbmc.translatePath("special://profile/addon_data/plugin.video.bacontv/config")
 USERDATA_FOLDER=xbmc.translatePath("special://profile/addon_data/plugin.video.bacontv")
 
+userAgentString = "kodi.tv:"+ADDON_ID+":v"+ADDON_VERSION+" (by /u/rasjani)"
+
 
 if not os.path.isdir(USERDATA_FOLDER):
     os.mkdir(USERDATA_FOLDER)
 
-all_hosters = [YouTube(xbmcaddon, xbmc), Vimeo(xbmcaddon, xbmc), LiveLeak(xbmcaddon,xbmc)]
+all_hosters = [YouTube(xbmcaddon, xbmc), Vimeo(xbmcaddon, xbmc), LiveLeak(xbmcaddon,xbmc), Streamable(xbmcaddon, xbmc)]
 
 all_enabled_hosters = filter(lambda hoster: hoster.enabled(), all_hosters)
 
@@ -59,29 +66,15 @@ sort_option_data = {
     "cat_com_year":         { "sort": "comments", "time": "year", "label": [30005,30010] },
     "cat_com_all":          { "sort": "comments", "time": "all", "label": [30005,30011] }}
 
+def getBoolSetting(opt):
+    #return plugin.get_setting(opt) == "true"
+    return True
+
+enabled_sort_options = filter(lambda opt: getBoolSetting(opt), list(sort_option_data))
+
 #items_per_page = int(xbmcaddon.getSetting("itemsPerPage"))
 items_per_page = 0
 items_per_page = ["25", "50", "75", "100"][items_per_page]
-
-def normalize(str):
-    return  unicodedata.normalize('NFKD', str).encode('ascii','ignore')
-
-@plugin.route("/playvideo/<providername>/<video_id>/")
-def playvideo(providername, video_id):
-    provider = get_provider_by_name(providername)
-    url = provider.resolve_play_url(video_id)
-    return plugin.set_resolved_url(url)
-
-def generate_play_link(id, provider, title, date, rating, thumb, description):
-    return  {
-        'label' : normalize(title),
-        'thumbnail' : thumb,
-        'path' provider.get_play_url(id),
-        'info': {
-            'plot': normalize(description)
-        },
-        'is_playable': True
-    }
 
 def get_provider_by_url(url):
     return next((provider for provider in all_enabled_hosters if provider.can_play(url)!=None), None)
@@ -92,43 +85,12 @@ def get_provider_by_name(name):
 def gen_sites_string():
     return " OR ".join(map(lambda hoster: hoster.site_string, all_enabled_hosters))
 
-def getBoolSetting(opt):
-    #return plugin.get_setting(opt) == "true"
-    return True
-
 def _(id):
     return plugin.get_string(id)
 
 def _get_sort_label(sort_entry):
     labels = sort_option_data[sort_entry]['label']
     return ": ".join(map(lambda id: _(id), labels))
-
-def cleanTitle(title):
-    title = title.replace("&lt;","<").replace("&gt;",">").replace("&amp;","&").replace("&#039;","'").replace("&quot;","\"")
-    return title.strip()
-
-enabled_sort_options = filter(lambda opt: getBoolSetting(opt), list(sort_option_data))
-
-def _dlpage(url):
-    socket.setdefaulttimeout(30)
-    opener = urllib2.build_opener()
-    userAgent = "kodi.tv:"+ADDON_ID+":v"+ADDON_VERSION+" (by /u/rasjani)"
-    opener.addheaders = [('User-Agent', userAgent)]
-    urllib2.install_opener(opener)
-    try:
-        response = ""
-        with closing(urllib2.urlopen(url)) as conn:
-            response = conn.read()
-        return response
-    except Exception as e:
-        pass
-    return None
-
-def _apicall(url):
-    content = _dlpage(url)
-    if content != None:
-        content = json.loads(content.replace('\\"', '\''))
-    return content
 
 def openDatabase():
     #TODO: Error handling
@@ -180,17 +142,28 @@ def generate_search_url(subreddit, sorting, sites = None):
     #data['options']
     return "{base}/r/{subreddit}/search.json?q={querystring}&{options}".format(**data)
 
+@plugin.route("/playvideo/<providername>/<video_id>/")
+def playvideo(providername, video_id):
+    provider = get_provider_by_name(providername)
+    url = provider.resolve_play_url(video_id)
+    return plugin.set_resolved_url(url)
+
 @plugin.route("/listvideos/<subreddit>/<sorting>", name="default_listvideos", options={"sites": None})
 @plugin.route("/listvideos/<subreddit>/<sorting>/<sites>")
 def listvideos(subreddit, sorting, sites):
+    print "x",1
     url = generate_search_url(subreddit, sorting, sites)
-    content = _apicall(url)
+    print "x",
+    content = api_call(url, userAgentString)
     itemlist = []
+    print "x",2
     if content != None:
+        print "x",3
         for entry in content['data']['children']:
-            title = cleanTitle(entry['data']['title'])
+            print "x",4
+            title = clean_title(entry['data']['title'])
             try:
-                description = cleanTitle(entry['data']['media']['oembed']['description'])
+                description = clean_title(entry['data']['media']['oembed']['description'])
             except:
                 description = ""
             try:
@@ -216,7 +189,7 @@ def listvideos(subreddit, sorting, sites):
             try:
                 url = entry['data']['media']['oembed']['url']
             except:
-                url = urllib2.unquote(entry['data']['url'])
+                url = unquote(entry['data']['url'])
 
             provider = get_provider_by_url(url)
             play_data = provider.get_play_data(url)
@@ -249,6 +222,11 @@ def listsorting(subreddit, sites):
 
     return plugin.finish(items)
 
+@plugin.route("/addsubreddit/", name="addnewsubreddit", options={"subreddit": None})
+@plugin.route("/addsubreddit/<subreddit>/")
+def addsubreddit(subreddit):
+    return plugin.finish([])
+
 @plugin.route("/")
 def index():
     items = []
@@ -265,8 +243,8 @@ def index():
             'is_playable': False
         })
     items.append({
-        'label': 'liveleak',
-        'path': plugin.url_for('playvideo', providername='bacontv', video_id='foobar'),
+        'label': _(30001),
+        'path': plugin.url_for('addnewsubreddit' ),
         'is_playable': False
     })
     return plugin.finish(items)
