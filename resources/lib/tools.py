@@ -29,33 +29,24 @@ def clean_title(title):
 
 
 def dl_page(url, userAgent = None):
-    print "DL_PAGE",1, url
     socket.setdefaulttimeout(30)
-    print "DL_PAGE",2
     if userAgent != None:
-        print "DL_PAGE",3
         opener = build_opener()
         opener.addheaders = [('User-Agent', userAgent)]
         install_opener(opener)
 
-    print "DL_PAGE",4
     try:
         response = ""
         with closing(urlopen(url)) as conn:
             response = conn.read()
         return response
     except Exception as e:
-        print "DL_PAGE", e
         pass
     return None
 
 
 def api_call(url, userAgent = None):
-    print "APICALL",1
     content = dl_page(url, userAgent)
-    print "APICALL",2
     if content != None:
-        print "APICALL",3
         content = json.loads(content.replace('\\"', '\''))
-        print "APICALL",4
     return content

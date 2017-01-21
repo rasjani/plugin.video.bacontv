@@ -110,7 +110,7 @@ def subreddits():
     #TODO: check how unicode works in xbmc?
     return map(lambda sub: str(sub[0]), res.fetchall())
 
-def generate_search_url(subreddit, sorting, sites = None):
+def generate_search_url(subreddit, sorting, sites = None, page=None):
     # urlMain+"/r/"+subreddit+"/search.json?q="+nsfw+hosterQuery+"&sort=hot&restrict_sr=on&limit="+itemsPerPage+"&t=hour
 # https://www.reddit.com/r/suomirap/search.json?q=nsfw:1+site%3Ayoutube.com+OR+site%3Ayoutu.be+OR+site%3Avimeo.com&sort=new&restrict_sr=on&limit=25
     data = {
@@ -125,6 +125,10 @@ def generate_search_url(subreddit, sorting, sites = None):
         'restrict_sr': 'on',
         'limit': items_per_page
     }
+
+    if page:
+        options['after'] = page
+
     time_interval = sort_option_data[sorting]['time']
     if time_interval != None:
         options['t'] = time_interval
@@ -148,19 +152,14 @@ def playvideo(providername, video_id):
     url = provider.resolve_play_url(video_id)
     return plugin.set_resolved_url(url)
 
-@plugin.route("/listvideos/<subreddit>/<sorting>", name="default_listvideos", options={"sites": None})
-@plugin.route("/listvideos/<subreddit>/<sorting>/<sites>")
-def listvideos(subreddit, sorting, sites):
-    print "x",1
+@plugin.route("/listvideos/<subreddit>/<sorting>/<sites>", name="default_listvideos", options={"page": None})
+@plugin.route("/listvideos/<subreddit>/<sorting>/<sites>/<page>")
+def listvideos(subreddit, sorting, sites, page):
     url = generate_search_url(subreddit, sorting, sites)
-    print "x",
     content = api_call(url, userAgentString)
     itemlist = []
-    print "x",2
     if content != None:
-        print "x",3
         for entry in content['data']['children']:
-            print "x",4
             title = clean_title(entry['data']['title'])
             try:
                 description = clean_title(entry['data']['media']['oembed']['description'])
@@ -201,7 +200,14 @@ def listvideos(subreddit, sorting, sites):
             if item != None:
                 itemlist.append(item)
 
-        return plugin.finish(itemlist)
+        if 'after' in content['data']:
+            itemlist.append({
+                'label': _(30016),
+                'path': plugin.url_for('listvideos', subreddit = subreddit, sorting = sorting, sites = sites, page = content['data']['after']),
+                'is_playable': False
+            })
+
+    return plugin.finish(itemlist)
 
 @plugin.route("/listsorting/<subreddit>/", name="default_listsorting", options={"sites": None})
 @plugin.route("/listsorting/<subreddit>/<sites>/")
@@ -215,8 +221,7 @@ def listsorting(subreddit, sites):
 
             items.append({
                 'label': _get_sort_label(sort_entry),
-                #'path': plugin.url_for('default_listvideos', subreddit = subreddit, sorting = sort_entry  ),
-                'path': plugin.url_for('listvideos', subreddit = subreddit, sorting = sort_entry, sites = sites),
+                'path': plugin.url_for('default_listvideos', subreddit = subreddit, sorting = sort_entry, sites=sites  ),
                 'is_playable': False
             })
 
