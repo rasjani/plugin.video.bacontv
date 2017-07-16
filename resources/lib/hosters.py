@@ -49,7 +49,7 @@ class Hoster:
         return self.xbmc.getCondVisibility( ('System.HasAddon(%s)' % self.addon_id) )
 
     def enabled(self):
-        return True
+        return True # TODO: Remove later
         return self.xbmcaddon.getSetting(self.setting_name) == "true" and self._addon_installed()
 
     def process_video_id(self, video_id):
@@ -82,7 +82,8 @@ class YouTube(Hoster):
             "youtube",
             "show_youtube",
             "site:youtube.com OR site:youtu.be",
-            ['youtube.com/.*v=([^#\&\?]*).*', 'youtube.com/watch\\?v=([^#\&\?]*).*','youtu.be/([^#\&\?]*).*'],
+            ['youtube.com/.*v=([^#\&\?]*).*', 'youtube.com/.*watch\\?v=([^#\&\?]*).*','youtu.be/([^#\&\?]*).*' ],
+            #https://www.youtube.com/attribution_link?a=tn9rdwcttpU&amp;u=/watch?v=zQvcni57hRM&feature=share
             "plugin://{0}/play/?video_id={1}"
         )
 
