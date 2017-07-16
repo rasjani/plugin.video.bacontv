@@ -32,3 +32,12 @@ SELECT
 FROM
     'subscriptions'
 """
+
+commands['ADDSUBREDDIT']="""
+INSERT INTO subscriptions (subreddit) VALUES (?)
+"""
+
+commands['REMOVESUBREDDIT']="""
+DELETE FROM 'subscriptions' WHERE subreddit = ?
+"""
+

@@ -116,9 +116,36 @@ def subreddits():
     #TODO: check how unicode works in xbmc?
     return map(lambda sub: str(sub[0]), res.fetchall())
 
+def generate_subreddit_context_menu(sub, from_search):
+    action = 'removesubreddit' if not from_search else 'addsubreddit'
+    [
+        (_(30013), plugin.url_for(action, subreddit=sub)),
+    ]
+
+def generate_subreddit_search_url(keyword, page=None):
+    # urlMain+"/r/subreddits/search.json?q=keyword&show=all&limit=25&sort=relevance&type=sr
+    data = {
+        'base': BASE_URL,
+        'api_endpoint': 'subreddits',
+        'querystring': quote_plus(keyword).replace(' ','+'),
+        'options': '',
+    }
+    options = {
+        'show' : 'all',
+        'limit': items_per_page,
+        'sort' : 'relevance',
+        'type' : 'sr'
+    }
+    if page:
+        options['after'] = page
+    data['options']="&".join(['{}={}'.format(k,v) for k,v in options.iteritems()])
+    return "{base}/{api_endpoint}/search.json?q={querystring}&{options}".format(**data)
+
+
+
 def generate_search_url(subreddit, sorting, sites = None, page=None):
     # urlMain+"/r/"+subreddit+"/search.json?q="+nsfw+hosterQuery+"&sort=hot&restrict_sr=on&limit="+itemsPerPage+"&t=hour
-# https://www.reddit.com/r/suomirap/search.json?q=nsfw:1+site%3Ayoutube.com+OR+site%3Ayoutu.be+OR+site%3Avimeo.com&sort=new&restrict_sr=on&limit=25
+    # https://www.reddit.com/r/suomirap/search.json?q=nsfw:1+site%3Ayoutube.com+OR+site%3Ayoutu.be+OR+site%3Avimeo.com&sort=new&restrict_sr=on&limit=25
     data = {
         "base": BASE_URL,
         "subreddit": subreddit,
@@ -236,26 +263,73 @@ def listsorting(subreddit, sites):
 @plugin.route("/addsubreddit/", name="addnewsubreddit", options={"subreddit": None})
 @plugin.route("/addsubreddit/<subreddit>/")
 def addsubreddit(subreddit):
-    return plugin.finish([])
+    cd = openDatabase()
+    res = cd['cur'].execute(commands['ADDSUBREDDIT'], (subreddit,))
+    cd['con'].commit()
+
+@plugin.route("/remove_subreddit/<subreddit>/", name="removesubreddit", options={"subreddit": None})
+def remove_subreddit(subreddit):
+    cd = openDatabase()
+    res = cd['cur'].execute(commands['REMOVESUBREDDIT'], (subreddit,))
+    cd['con'].commit()
+
+
+@plugin.route("/searchsubreddits/", name="default_searchforsubreddits", options={"keyword": None, "page": None})
+@plugin.route("/searchsubreddits/<keyword>/<page>", name="searchforsubreddits")
+def searchsubreddits(keyword, page):
+    search_string = None
+    if keyword == None:
+        keyboard = xbmc.Keyboard('', _(30017))
+        keyboard.doModal()
+        if keyboard.isConfirmed() and keyboard.getText():
+            search_string = keyboard.getText()
+    else:
+        search_string = keyword
+
+    items = []
+    if search_string != None:
+        url = generate_subreddit_search_url(search_string, page)
+        content = api_call(url, userAgentString)
+        if content != None:
+            for sub in content['data']['children']:
+                sub_name = sub['data']['display_name']
+                items.append(generate_subreddit_item(sub_name, True))
+
+        if 'after' in content['data'] and content['data']['after'] != None:
+            items.append({
+                'label': _(30016),
+                'path': plugin.url_for('searchforsubreddits', keyword = search_string, page = content['data']['after']),
+                'is_playable': False
+            })
+
+    return items
+
+def generate_subreddit_item(sub, from_search = False):
+    return {
+            'label': "/r/" + sub,
+            'path': plugin.url_for('default_listsorting', subreddit=sub),
+            'context_menu': generate_subreddit_context_menu(sub, from_search),
+            'replace_context_menu': False,
+            'is_playable': False
+        }
 
 @plugin.route("/")
 def index():
     items = []
+
     for sub in subreddits():
-        items.append({
-            'label': "/r/" + sub,
-            'path': plugin.url_for('default_listsorting', subreddit=sub),
-            'is_playable': False
-        })
+        items.append(generate_subreddit_item(sub))
+
     for site in all_enabled_hosters:
         items.append({
             'label': site.header,
             'path': plugin.url_for('listsorting',subreddit='all', sites=site.site_string),
             'is_playable': False
         })
+
     items.append({
-        'label': _(30001),
-        'path': plugin.url_for('addnewsubreddit' ),
+        'label': _(30019),
+        'path': plugin.url_for('default_searchforsubreddits' ),
         'is_playable': False
     })
     return plugin.finish(items)
