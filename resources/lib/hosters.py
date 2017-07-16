@@ -148,3 +148,25 @@ class Streamable(Hoster):
                 return  "https://{0}".format(data['files']['mp4']['embed_url'])
 
         return None
+
+class GfyCat(Hoster):
+    def __init__(self, xbmcaddon, xbmc):
+        Hoster.__init__(self, xbmcaddon, xbmc,
+            "[ GfyCat.com ]",
+            "plugin.video.bacontv",
+            "gfycat",
+            "show_gfycat",
+            "site:gfycat.com",
+            ["gfycat.com\/(.*)"],
+            "plugin://{0}/playvideo/{2}/{1}"
+        )
+
+    def resolve_play_url(self, id):
+        url = "http://gfycat.com/cajax/get/{0}".format(id)
+        content = _dlpage(url).replace('\\"', '\'')
+        if content != None:
+            content = json.loads(content.replace('\\"','\''))
+            if "gfyItem" in content and "mp4Url" in content["gfyItem"]:
+                return content["gfyItem"]["mp4Url"]
+
+        return None

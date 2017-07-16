@@ -15,7 +15,7 @@ import re
 import sqlite3
 from urllib import quote_plus
 
-from resources.lib import YouTube, LiveLeak, Vimeo, Streamable
+from resources.lib import YouTube, LiveLeak, Vimeo, Streamable, GfyCat
 from resources.lib import commands
 from resources.lib import api_call, normalize, clean_title, dl_page
 from resources.lib import generate_play_link
@@ -39,7 +39,13 @@ userAgentString = "kodi.tv:"+ADDON_ID+":v"+ADDON_VERSION+" (by /u/rasjani)"
 if not os.path.isdir(USERDATA_FOLDER):
     os.mkdir(USERDATA_FOLDER)
 
-all_hosters = [YouTube(xbmcaddon, xbmc), Vimeo(xbmcaddon, xbmc), LiveLeak(xbmcaddon,xbmc), Streamable(xbmcaddon, xbmc)]
+all_hosters = [
+        YouTube(xbmcaddon, xbmc),
+        Vimeo(xbmcaddon, xbmc),
+        LiveLeak(xbmcaddon,xbmc),
+        Streamable(xbmcaddon, xbmc),
+        GfyCat(xbmcaddon, xbmc)
+]
 
 all_enabled_hosters = filter(lambda hoster: hoster.enabled(), all_hosters)
 
