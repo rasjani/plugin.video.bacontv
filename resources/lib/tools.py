@@ -28,11 +28,19 @@ def clean_title(title):
     return title.strip()
 
 
-def dl_page(url, userAgent = None):
-    socket.setdefaulttimeout(30)
-    if userAgent != None:
+def dl_page(url, userAgent = None, extra_headers = None, default_timeout = 30):
+    socket.setdefaulttimeout(default_timeout)
+    if userAgent != None or extra_headers != None:
         opener = build_opener()
-        opener.addheaders = [('User-Agent', userAgent)]
+        headers = []
+
+        if userAgent != None:
+            headers.append( ('User-Agent', userAgent ) )
+
+        if extra_headers != None:
+            headers.append(extra_headers)
+
+        opener.addheaders = headers
         install_opener(opener)
 
     try:

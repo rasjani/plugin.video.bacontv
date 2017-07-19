@@ -2,20 +2,14 @@
 # vi: set shiftwidth=4 tabstop=4 expandtab:
 __author__ = 'rasjani'
 
-from kodiswift import Plugin
-from kodiswift import xbmcaddon
-from kodiswift import xbmc
-# from BeautifulSoup import BeautifulSoup as BS
-from urllib2 import HTTPError, unquote
-from time import sleep
-from urlparse import urlparse
-from contextlib import closing
+from kodiswift import Plugin, xbmcaddon, xbmc
+from urllib2 import unquote
 import os
 import re
 import sqlite3
 from urllib import quote_plus
 
-from resources.lib import YouTube, LiveLeak, Vimeo, Streamable, GfyCat
+from resources.lib import YouTube, LiveLeak, Vimeo, Streamable, GfyCat, Vidme
 from resources.lib import commands
 from resources.lib import api_call, normalize, clean_title, dl_page
 from resources.lib import generate_play_link
@@ -44,7 +38,8 @@ all_hosters = [
         Vimeo(xbmcaddon, xbmc),
         LiveLeak(xbmcaddon,xbmc),
         Streamable(xbmcaddon, xbmc),
-        GfyCat(xbmcaddon, xbmc)
+        GfyCat(xbmcaddon, xbmc),
+        Vidme(xbmcaddon, xbmc)
 ]
 
 all_enabled_hosters = filter(lambda hoster: hoster.enabled(), all_hosters)

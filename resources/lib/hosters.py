@@ -8,19 +8,9 @@ import socket
 import urllib2
 import urllib
 import json
+from base64 import b64encode
+from .tools import dl_page
 
-
-def _dlpage(url):
-    socket.setdefaulttimeout(30)
-    opener = urllib2.build_opener()
-    try:
-        response = ""
-        with closing(urllib2.urlopen(url)) as conn:
-            response = conn.read()
-        return response
-    except Exception as e:
-        pass
-    return None
 
 class Hoster:
     def __init__(self, xbmcaddon, xbmc, header, addon_id, name, setting_name,site_string, matchers, play_template):
@@ -41,9 +31,6 @@ class Hoster:
 
     def get_play_url(self, id):
         return self.play_template.format(self.addon_id, id, self.name)
-
-    def get_download_url(self,id):
-        return None
 
     def _addon_installed(self,id):
         return self.xbmc.getCondVisibility( ('System.HasAddon(%s)' % self.addon_id) )
@@ -113,7 +100,7 @@ class LiveLeak(Hoster):
 
     def resolve_play_url(self, id):
         url = "http://www.liveleak.com/view?i={0}&ajax=1".format(id)
-        content = _dlpage(url)
+        content = dl_page(url)
         if content != None:
             for matcher in ['hd_file_url=(.+?)&', 'file: "(.+?)"']:
                 match = re.compile(matcher, re.DOTALL).findall(content)
@@ -139,7 +126,7 @@ class Streamable(Hoster):
 
     def resolve_play_url(self, id):
         url = "http://streamable.com/{0}".format(id)
-        content = _dlpage(url)
+        content = dl_page(url)
         if content != None:
             match = re.compile("\s+var\s+videoObject\s+=\s+({.*?});", re.DOTALL).findall(content)
             if match:
@@ -163,10 +150,41 @@ class GfyCat(Hoster):
 
     def resolve_play_url(self, id):
         url = "http://gfycat.com/cajax/get/{0}".format(id)
-        content = _dlpage(url).replace('\\"', '\'')
+        content = dl_page(url).replace('\\"', '\'')
         if content != None:
             content = json.loads(content.replace('\\"','\''))
             if "gfyItem" in content and "mp4Url" in content["gfyItem"]:
                 return content["gfyItem"]["mp4Url"]
 
         return None
+
+class Vidme(Hoster):
+    api_key = 'uuBPBDwIJ7JC1g2ZFxg0G8o5yHUjS3IO'
+    def __init__(self, xbmcaddon, xbmc):
+        Hoster.__init__(self, xbmcaddon, xbmc,
+            '[ VidMe.com ]',
+            'plugin.video.bacontv',
+            'vidme',
+            'show_vidme',
+            'site:vid.me',
+            ['vid\.me/(.+)/.*', 'vid\.me/(.+)'], # TODO: Could be a single re
+            'plugin://{0}/playvideo/{2}/{1}'
+        )
+        self.extra_headers = ('Authorization', 'Basic {0}'.format(b64encode("{0}:".format(self.api_key)))) # I have a feeling that this is not even needed .. 
+
+    def resolve_play_url(self, id):
+        def to_json(data):
+            return json.loads(data.replace('\\"', '\''))
+        url  = "https://api.vid.me/video/{0}".format(id)
+        content = dl_page(url, extra_headers=self.extra_headers)
+        if content != None:
+            content = to_json(content)
+            return content['video']['complete_url']
+        else:
+            url = "https://api.vid.me/videoByUrl?url=https%3A%2F%2Fvid.me%2F{0}".format(id)
+            content = dl_page(url, extra_headers=self.extra_headers)
+            if content != None:
+                content = to_json(content)
+                return content['video']['complete_url']
+        return None
+
