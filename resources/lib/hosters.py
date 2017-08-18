@@ -86,6 +86,21 @@ class Vimeo(Hoster):
             "plugin://{0}/play/?video_id={1}"
         )
 
+class Reddit(Hoster):
+    def __init__(self, xbmcaddon, xbmc):
+        Hoster.__init__(self,xbmcaddon, xbmc,
+            "[ Reddit.com ]",
+            "plugin.video.bacontv",
+            "reddit",
+            "show_reddit",
+            "site:v.redd.it",
+            ['v.redd.it/(.*)'],
+            "plugin://{0}/playvideo/{2}/{1}"
+        )
+    def resolve_play_url(self, id):
+        return "https://v.redd.it/{0}/HLSPlaylist.m3u8".format(id)
+
+
 class LiveLeak(Hoster):
     def __init__(self, xbmcaddon, xbmc):
         Hoster.__init__(self, xbmcaddon, xbmc,

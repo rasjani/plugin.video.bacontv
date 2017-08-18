@@ -9,7 +9,7 @@ import re
 import sqlite3
 from urllib import quote_plus
 
-from resources.lib import YouTube, LiveLeak, Vimeo, Streamable, GfyCat, Vidme
+from resources.lib import YouTube, LiveLeak, Vimeo, Streamable, GfyCat, Vidme, Reddit
 from resources.lib import commands
 from resources.lib import api_call, normalize, clean_title, dl_page
 from resources.lib import generate_play_link
@@ -39,7 +39,8 @@ all_hosters = [
         LiveLeak(xbmcaddon,xbmc),
         Streamable(xbmcaddon, xbmc),
         GfyCat(xbmcaddon, xbmc),
-        Vidme(xbmcaddon, xbmc)
+        Vidme(xbmcaddon, xbmc),
+        Reddit(xbmcaddon, xbmc)
 ]
 
 all_enabled_hosters = filter(lambda hoster: hoster.enabled(), all_hosters)
